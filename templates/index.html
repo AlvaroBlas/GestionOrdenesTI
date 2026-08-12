@@ -35,6 +35,9 @@
             {% elif session['rol'] == 'marketing' %}
             <h1 class="display-5 fw-bold text-warning">Panel de Gestión de Marketing</h1>
             <p class="lead text-muted">Generación y control de órdenes de servicio para marketing</p>
+            {% elif session['rol'] == 'mantenimiento' %}
+            <h1 class="display-5 fw-bold text-primary">Panel de Gestión de Mantenimiento</h1>
+            <p class="lead text-muted">Generación y control de órdenes de compra para mantenimiento</p>
             {% endif %}
         </div>
     </div>
@@ -77,6 +80,16 @@
                     <h3 class="card-title text-warning">Orden de Servicio</h3>
                     <p class="card-text">Generar una nueva orden de servicio para marketing.</p>
                     <a href="/servicios" class="btn btn-warning btn-lg mt-3 w-100">Crear Orden</a>
+                </div>
+            </div>
+        </div>
+        {% elif session['rol'] == 'mantenimiento' %}
+        <div class="col-md-4">
+            <div class="card h-100 shadow-sm border-primary">
+                <div class="card-body text-center">
+                    <h3 class="card-title text-primary">Orden de Compra</h3>
+                    <p class="card-text">Generar una nueva solicitud para compra de equipos, repuestos o suministros de mantenimiento.</p>
+                    <a href="/mantenimiento" class="btn btn-primary btn-lg mt-3 w-100">Crear Orden</a>
                 </div>
             </div>
         </div>

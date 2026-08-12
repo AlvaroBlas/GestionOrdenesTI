@@ -306,6 +306,23 @@
             {% endfor %}
         </ul>
     </div>
+    {% elif session['rol'] == 'mantenimiento' %}
+    <div class="columna-historial" style="grid-column: span 2;">
+        <h2 style="color: #1a4971; border-bottom: 2px solid #1a4971; padding-bottom: 5px;">📦 Órdenes de Compra (Mantenimiento)</h2>
+        <ul class="lista-archivos">
+            {% for archivo in mantenimiento %}
+            <li class="archivo-item">
+                <span class="archivo-nombre">{{ archivo }}</span>
+                <div style="display: flex; gap: 5px;">
+                    <a href="{{ url_for('ver_pdf', tipo='mantenimiento', nombre=archivo) }}" target="_blank" class="btn-ver">Ver PDF</a>
+                    <a href="/mantenimiento?edit={{ archivo }}" class="btn-ver" style="background: #e67e22;">Editar</a>
+                </div>
+            </li>
+            {% else %}
+            <p class="vacio">No hay órdenes guardadas aún.</p>
+            {% endfor %}
+        </ul>
+    </div>
     {% endif %}
 </div>
 </div>

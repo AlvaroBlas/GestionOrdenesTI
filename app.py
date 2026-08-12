@@ -31,17 +31,21 @@ CONTA_USER = os.getenv('CONTA_USERNAME', 'conta')
 CONTA_PASS = os.getenv('CONTA_PASSWORD', 'conta123')
 MKT_USER = os.getenv('MARKETING_USERNAME', 'marketing')
 MKT_PASS = os.getenv('MARKETING_PASSWORD', 'marketing2026')
+MANT_USER = os.getenv('MANT_USERNAME', 'mantenimiento')
+MANT_PASS = os.getenv('MANT_PASSWORD', 'mantenimiento2026')
 
 USER_CREDENTIALS = {
     TI_USER: TI_PASS,
     CONTA_USER: CONTA_PASS,
-    MKT_USER: MKT_PASS
+    MKT_USER: MKT_PASS,
+    MANT_USER: MANT_PASS
 }
 
 USER_ROLES = {
     TI_USER: 'sistemas',
     CONTA_USER: 'contabilidad',
-    MKT_USER: 'marketing'
+    MKT_USER: 'marketing',
+    MANT_USER: 'mantenimiento'
 }
 
 # --- CONFIGURACIÓN DE CARPETAS ---
@@ -52,20 +56,24 @@ CARPETA_COMPRAS = os.path.join(CARPETA_HISTORIAL, 'compras')
 CARPETA_BAJAS = os.path.join(CARPETA_HISTORIAL, 'bajas')
 CARPETA_PAGOS = os.path.join(CARPETA_HISTORIAL, 'pagos')
 CARPETA_SERVICIOS = os.path.join(CARPETA_HISTORIAL, 'servicios')
+CARPETA_MANTENIMIENTO = os.path.join(CARPETA_HISTORIAL, 'mantenimiento')
 CARPETA_COMPRAS_EDITADAS = os.path.join(CARPETA_HISTORIAL, 'compras_editadas')
 CARPETA_BAJAS_EDITADAS = os.path.join(CARPETA_HISTORIAL, 'bajas_editadas')
 CARPETA_PAGOS_EDITADAS = os.path.join(CARPETA_HISTORIAL, 'pagos_editadas')
 CARPETA_SERVICIOS_EDITADAS = os.path.join(CARPETA_HISTORIAL, 'servicios_editadas')
+CARPETA_MANTENIMIENTO_EDITADAS = os.path.join(CARPETA_HISTORIAL, 'mantenimiento_editadas')
 CARPETA_FACTURAS = os.path.join(CARPETA_HISTORIAL, 'facturas_oc')
 
 os.makedirs(CARPETA_COMPRAS, exist_ok=True)
 os.makedirs(CARPETA_BAJAS, exist_ok=True)
 os.makedirs(CARPETA_PAGOS, exist_ok=True)
 os.makedirs(CARPETA_SERVICIOS, exist_ok=True)
+os.makedirs(CARPETA_MANTENIMIENTO, exist_ok=True)
 os.makedirs(CARPETA_COMPRAS_EDITADAS, exist_ok=True)
 os.makedirs(CARPETA_BAJAS_EDITADAS, exist_ok=True)
 os.makedirs(CARPETA_PAGOS_EDITADAS, exist_ok=True)
 os.makedirs(CARPETA_SERVICIOS_EDITADAS, exist_ok=True)
+os.makedirs(CARPETA_MANTENIMIENTO_EDITADAS, exist_ok=True)
 os.makedirs(CARPETA_FACTURAS, exist_ok=True)
 
 ARCHIVO_CONTADOR = os.path.join(BASE_DIR, 'contador_oc.txt')
@@ -110,6 +118,21 @@ with get_db_connection() as conn:
     ''')
     conn.execute('''
         CREATE TABLE IF NOT EXISTS proveedores_mkt (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT UNIQUE,
+            ruc TEXT,
+            direccion TEXT,
+            contacto TEXT,
+            cuenta_soles TEXT,
+            cci TEXT,
+            cuenta_dolares TEXT,
+            banco TEXT DEFAULT 'BCP',
+            contacto_nombre TEXT DEFAULT '',
+            contacto_telefono TEXT DEFAULT ''
+        )
+    ''')
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS proveedores_maint (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nombre TEXT UNIQUE,
             ruc TEXT,
@@ -203,6 +226,9 @@ with get_db_connection() as conn:
     cursor.execute('SELECT COUNT(*) FROM contadores WHERE tipo = ?', ('servicios',))
     if cursor.fetchone()[0] == 0:
         conn.execute('INSERT INTO contadores (tipo, valor) VALUES (?, ?)', ('servicios', 1))
+    cursor.execute('SELECT COUNT(*) FROM contadores WHERE tipo = ?', ('mantenimiento',))
+    if cursor.fetchone()[0] == 0:
+        conn.execute('INSERT INTO contadores (tipo, valor) VALUES (?, ?)', ('mantenimiento', 1))
             
     conn.commit()
 
@@ -267,6 +293,21 @@ def sincronizar_contadores_con_disco():
         if max_val > 0:
             with get_db_connection() as conn_db:
                 conn_db.execute('INSERT OR REPLACE INTO contadores (tipo, valor) VALUES (?, ?)', ('servicios', max_val + 1))
+                conn_db.commit()
+
+    # Sincronizar mantenimiento
+    if os.path.exists(CARPETA_MANTENIMIENTO):
+        max_val = 0
+        for f in os.listdir(CARPETA_MANTENIMIENTO):
+            if f.startswith('OCM_') and f.endswith('.pdf'):
+                match = re.search(r'-(\d+)\.pdf$', f)
+                if match:
+                    val = int(match.group(1))
+                    if val > max_val:
+                        max_val = val
+        if max_val > 0:
+            with get_db_connection() as conn_db:
+                conn_db.execute('INSERT OR REPLACE INTO contadores (tipo, valor) VALUES (?, ?)', ('mantenimiento', max_val + 1))
                 conn_db.commit()
 
 # Ejecutar sincronización al inicio
@@ -381,6 +422,20 @@ def servicios():
     numero_formateado = f"{fecha_hoy}-{numero_actual:04d}" 
     return render_template('orden_de_servicio.html', numero_os=numero_formateado, edit_mode=False, edit_filename='')
 
+@app.route('/mantenimiento')
+def mantenimiento():
+    if session.get('rol') != 'mantenimiento':
+        return redirect(url_for('index'))
+    edit = request.args.get('edit', '')
+    if edit:
+        numero_oc = edit.replace('OCM_', '').replace('.pdf', '')
+        return render_template('orden_de_compra_mantenimiento.html', numero_oc=numero_oc, edit_mode=True, edit_filename=edit)
+    
+    numero_actual = obtener_siguiente_numero('mantenimiento')
+    fecha_hoy = datetime.now().strftime('%Y%m%d')
+    numero_formateado = f"{fecha_hoy}-{numero_actual:04d}" 
+    return render_template('orden_de_compra_mantenimiento.html', numero_oc=numero_formateado, edit_mode=False, edit_filename='')
+
 @app.route('/bajas')
 def bajas():
     if session.get('rol') != 'sistemas':
@@ -425,6 +480,8 @@ def historial():
             return int(match.group(1))
         return 0
     
+    archivos_mantenimiento = []
+    
     if rol == 'sistemas':
         if os.path.exists(CARPETA_COMPRAS):
             archivos_compras = sorted([f for f in os.listdir(CARPETA_COMPRAS) if f.endswith('.pdf')], key=lambda f: (-obtener_numero_orden(f), f))
@@ -455,8 +512,11 @@ def historial():
     elif rol == 'marketing':
         if os.path.exists(CARPETA_SERVICIOS):
             archivos_servicios = sorted([f for f in os.listdir(CARPETA_SERVICIOS) if f.endswith('.pdf')], key=lambda f: (-obtener_numero_orden(f), f))
+    elif rol == 'mantenimiento':
+        if os.path.exists(CARPETA_MANTENIMIENTO):
+            archivos_mantenimiento = sorted([f for f in os.listdir(CARPETA_MANTENIMIENTO) if f.endswith('.pdf')], key=lambda f: (-obtener_numero_orden(f), f))
             
-    return render_template('historial.html', compras=archivos_compras, bajas=archivos_bajas, pagos=archivos_pagos, servicios=archivos_servicios, mapeo_facturas=mapeo_facturas, mapeo_vinculos_oc=mapeo_vinculos_oc, mapeo_facturas_oc=mapeo_facturas_oc)
+    return render_template('historial.html', compras=archivos_compras, bajas=archivos_bajas, pagos=archivos_pagos, servicios=archivos_servicios, mantenimiento=archivos_mantenimiento, mapeo_facturas=mapeo_facturas, mapeo_vinculos_oc=mapeo_vinculos_oc, mapeo_facturas_oc=mapeo_facturas_oc)
 
 
 # --- RUTAS DE ARCHIVOS (PDF) ---
@@ -479,6 +539,10 @@ def ver_pdf(tipo, nombre):
         if os.path.exists(os.path.join(CARPETA_SERVICIOS_EDITADAS, nombre)):
             return send_from_directory(CARPETA_SERVICIOS_EDITADAS, nombre)
         return send_from_directory(CARPETA_SERVICIOS, nombre)
+    elif tipo == 'mantenimiento' and rol == 'mantenimiento':
+        if os.path.exists(os.path.join(CARPETA_MANTENIMIENTO_EDITADAS, nombre)):
+            return send_from_directory(CARPETA_MANTENIMIENTO_EDITADAS, nombre)
+        return send_from_directory(CARPETA_MANTENIMIENTO, nombre)
     return "Archivo no encontrado o acceso no autorizado", 404
 
 @app.route('/ver_factura/<nombre>')
@@ -593,6 +657,12 @@ def get_metadata(tipo, nombre):
             ruta = ruta_editada
         else:
             ruta = os.path.join(CARPETA_SERVICIOS, json_nombre)
+    elif tipo == 'mantenimiento' and rol == 'mantenimiento':
+        ruta_editada = os.path.join(CARPETA_MANTENIMIENTO_EDITADAS, json_nombre)
+        if os.path.exists(ruta_editada):
+            ruta = ruta_editada
+        else:
+            ruta = os.path.join(CARPETA_MANTENIMIENTO, json_nombre)
     else:
         return jsonify({'success': False, 'message': 'Tipo no válido o acceso no autorizado'}), 400
     
@@ -643,6 +713,12 @@ def guardar_pdf():
         else:
             ruta_guardado = os.path.join(CARPETA_SERVICIOS, nombre_archivo)
             incrementar_numero('servicios')
+    elif nombre_archivo.startswith('OCM_'):
+        if edit_mode:
+            ruta_guardado = os.path.join(CARPETA_MANTENIMIENTO_EDITADAS, nombre_archivo)
+        else:
+            ruta_guardado = os.path.join(CARPETA_MANTENIMIENTO, nombre_archivo)
+            incrementar_numero('mantenimiento')
     else:
         ruta_guardado = os.path.join(CARPETA_HISTORIAL, nombre_archivo)
     
@@ -665,7 +741,7 @@ def guardar_pdf():
                 json.dump(metadata_dict, f, ensure_ascii=False, indent=2)
 
             # Guardar automáticamente la Razón Social del emisor si es una Orden de Compra, Pago o Servicio
-            if nombre_archivo.startswith('OC_') or nombre_archivo.startswith('OP_') or nombre_archivo.startswith('OS_'):
+            if nombre_archivo.startswith('OC_') or nombre_archivo.startswith('OP_') or nombre_archivo.startswith('OS_') or nombre_archivo.startswith('OCM_'):
                 razon_social = metadata_dict.get('razon_social')
                 ruc = metadata_dict.get('ruc')
                 direccion = metadata_dict.get('direccion')
@@ -762,7 +838,7 @@ def guardar_proveedor():
 @app.route('/get_mapeo_proveedores')
 def get_mapeo_proveedores():
     mapeo = {}
-    for carpeta in [CARPETA_COMPRAS, CARPETA_COMPRAS_EDITADAS, CARPETA_BAJAS, CARPETA_BAJAS_EDITADAS, CARPETA_PAGOS, CARPETA_PAGOS_EDITADAS, CARPETA_SERVICIOS, CARPETA_SERVICIOS_EDITADAS]:
+    for carpeta in [CARPETA_COMPRAS, CARPETA_COMPRAS_EDITADAS, CARPETA_BAJAS, CARPETA_BAJAS_EDITADAS, CARPETA_PAGOS, CARPETA_PAGOS_EDITADAS, CARPETA_SERVICIOS, CARPETA_SERVICIOS_EDITADAS, CARPETA_MANTENIMIENTO, CARPETA_MANTENIMIENTO_EDITADAS]:
         if os.path.exists(carpeta):
             for f in os.listdir(carpeta):
                 if f.endswith('.json'):
@@ -779,7 +855,7 @@ def get_mapeo_proveedores():
 @app.route('/get_mapeo_emisores')
 def get_mapeo_emisores():
     mapeo = {}
-    for carpeta in [CARPETA_COMPRAS, CARPETA_COMPRAS_EDITADAS, CARPETA_BAJAS, CARPETA_BAJAS_EDITADAS, CARPETA_PAGOS, CARPETA_PAGOS_EDITADAS, CARPETA_SERVICIOS, CARPETA_SERVICIOS_EDITADAS]:
+    for carpeta in [CARPETA_COMPRAS, CARPETA_COMPRAS_EDITADAS, CARPETA_BAJAS, CARPETA_BAJAS_EDITADAS, CARPETA_PAGOS, CARPETA_PAGOS_EDITADAS, CARPETA_SERVICIOS, CARPETA_SERVICIOS_EDITADAS, CARPETA_MANTENIMIENTO, CARPETA_MANTENIMIENTO_EDITADAS]:
         if os.path.exists(carpeta):
             for f in os.listdir(carpeta):
                 if f.endswith('.json'):
