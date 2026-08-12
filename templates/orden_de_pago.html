@@ -655,6 +655,7 @@
       .then(datos => {
         if (datos.success) {
           alert('✅ ¡Orden de Pago guardada exitosamente!');
+          window.open('/ver_pdf/pagos/' + nombreArchivo, '_blank');
           window.location.href = '/historial';
         } else {
           alert('❌ Error del servidor: ' + datos.message);

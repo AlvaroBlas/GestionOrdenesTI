@@ -699,6 +699,7 @@
       .then(datos => {
         if (datos.success) {
           alert('✅ ¡Guardado exitosamente en la carpeta historial!');
+          window.open('/ver_pdf/compras/' + nombreArchivo, '_blank');
           if (EDIT_MODE) {
             window.location.href = '/historial';
           }
