@@ -550,7 +550,7 @@ def ver_factura(nombre):
     rol = session.get('rol')
     if rol not in ['sistemas', 'contabilidad']:
         return "Acceso no autorizado", 403
-    return send_from_directory(CARPETA_FACTURAS, nombre, as_attachment=True)
+    return send_from_directory(CARPETA_FACTURAS, nombre, as_attachment=False)
 
 @app.route('/subir_factura', methods=['POST'])
 def subir_factura():
