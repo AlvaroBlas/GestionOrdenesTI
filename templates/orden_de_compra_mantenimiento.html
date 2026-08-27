@@ -674,6 +674,8 @@
           window.open('/ver_pdf/mantenimiento/' + nombreArchivo, '_blank');
           if (EDIT_MODE) {
             window.location.href = '/historial';
+          } else {
+            window.location.href = '/mantenimiento';
           }
         } else {
           alert('❌ Error del servidor: ' + datos.message);
