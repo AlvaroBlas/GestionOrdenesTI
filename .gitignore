@@ -10,3 +10,5 @@ contador_oc.txt
 contador_baja.txt
 historial/
 web.config
+*.docx
+Guia_de_Usuario_Gestion_Ordenes.docx
