@@ -76,9 +76,6 @@ os.makedirs(CARPETA_SERVICIOS_EDITADAS, exist_ok=True)
 os.makedirs(CARPETA_MANTENIMIENTO_EDITADAS, exist_ok=True)
 os.makedirs(CARPETA_FACTURAS, exist_ok=True)
 
-ARCHIVO_CONTADOR = os.path.join(BASE_DIR, 'contador_oc.txt')
-ARCHIVO_CONTADOR_BAJA = os.path.join(BASE_DIR, 'contador_baja.txt')
-
 # --- CONFIGURACIÓN DE BASE DE DATOS ---
 DB_PATH = os.path.join(BASE_DIR, 'database.db')
 
@@ -171,10 +168,6 @@ with get_db_connection() as conn:
         VALUES (?, ?, ?)
     ''', ('MEDICAL DIAGNOSTIC S.A.C.', '20511431752', 'AV. ARENALES NRO. 630 LIMA - LIMA - JESUS MARIA'))
     
-    # Migraciones para limpiar datos solicitados
-    conn.execute("DELETE FROM mis_empresas WHERE razon_social = 'MEDICAL DENT DIGITAL'")
-    conn.execute("UPDATE mis_empresas SET razon_social = 'MEDICAL OXXO S.A.C.' WHERE razon_social = 'medical oxxo s.a.c.'")
-    
     # Crear e inicializar tabla de contadores
     conn.execute('''
         CREATE TABLE IF NOT EXISTS contadores (
@@ -183,25 +176,10 @@ with get_db_connection() as conn:
         )
     ''')
     cursor = conn.cursor()
-    cursor.execute('SELECT COUNT(*) FROM contadores')
-    if cursor.fetchone()[0] == 0:
-        val_compras = 1
-        if os.path.exists(ARCHIVO_CONTADOR):
-            try:
-                with open(ARCHIVO_CONTADOR, 'r') as f:
-                    val_compras = int(f.read().strip())
-            except Exception:
-                pass
-        conn.execute('INSERT OR REPLACE INTO contadores (tipo, valor) VALUES (?, ?)', ('compras', val_compras))
-        
-        val_bajas = 1
-        if os.path.exists(ARCHIVO_CONTADOR_BAJA):
-            try:
-                with open(ARCHIVO_CONTADOR_BAJA, 'r') as f:
-                    val_bajas = int(f.read().strip())
-            except Exception:
-                pass
-        conn.execute('INSERT OR REPLACE INTO contadores (tipo, valor) VALUES (?, ?)', ('bajas', val_bajas))
+    for tipo_contador in ['compras', 'bajas', 'pagos', 'servicios', 'mantenimiento']:
+        cursor.execute('SELECT COUNT(*) FROM contadores WHERE tipo = ?', (tipo_contador,))
+        if cursor.fetchone()[0] == 0:
+            conn.execute('INSERT INTO contadores (tipo, valor) VALUES (?, ?)', (tipo_contador, 1))
     
     # Agregar columnas dinámicamente si no existen
     for query in [
@@ -218,18 +196,6 @@ with get_db_connection() as conn:
         except sqlite3.OperationalError:
             pass
 
-    # Inicializar contador de pagos y servicios si no existen
-    cursor = conn.cursor()
-    cursor.execute('SELECT COUNT(*) FROM contadores WHERE tipo = ?', ('pagos',))
-    if cursor.fetchone()[0] == 0:
-        conn.execute('INSERT INTO contadores (tipo, valor) VALUES (?, ?)', ('pagos', 1))
-    cursor.execute('SELECT COUNT(*) FROM contadores WHERE tipo = ?', ('servicios',))
-    if cursor.fetchone()[0] == 0:
-        conn.execute('INSERT INTO contadores (tipo, valor) VALUES (?, ?)', ('servicios', 1))
-    cursor.execute('SELECT COUNT(*) FROM contadores WHERE tipo = ?', ('mantenimiento',))
-    if cursor.fetchone()[0] == 0:
-        conn.execute('INSERT INTO contadores (tipo, valor) VALUES (?, ?)', ('mantenimiento', 1))
-            
     conn.commit()
 
 
